@@ -37,9 +37,11 @@ class VAT(object):
 		super(VAT, self).__init__()
 		self.params = copy.deepcopy(params)
 		self.config = to_object(params["config"])
+		config = self.config
 		self.chain = sequential.chain.Chain()
 		self.model = sequential.from_dict(params["model"])
 		self.chain.add_sequence(self.model)
+		self.chain.setup_optimizers(config.optimizer, config.learning_rate, config.momentum, config.weight_decay, config.gradient_clipping)
 		self._gpu = False
 
 	def load(self, dir=None):
@@ -111,17 +113,18 @@ class VAT(object):
 		v /= np.sqrt(np.sum(v ** 2, axis=1)).reshape((-1, 1))
 		return v
 
-	def compute_lds(self, x, xi=0.001, eps=1):
+	def compute_lds(self, x, xi=1, eps=1):
 		x = self.to_variable(x)
 		y1 = self.to_variable(self.encode_x_y(x, apply_softmax=True).data)		# unchain
 		d = self.to_variable(self.get_unit_vector(np.random.normal(size=x.shape).astype(np.float32)))
+
 		for i in xrange(self.config.Ip):
 			y2 = self.encode_x_y(x + xi * d, apply_softmax=True)
 			kld = self.compute_kld(y1, y2)
-			kld.backward()
-			d = self.to_variable(self.get_unit_vector(d.grad))
+			F.sum(kld).backward()
+			d = self.to_variable(self.get_unit_vector(self.to_numpy(d.grad)))
 		
 		y2 = self.encode_x_y(x + eps * d, apply_softmax=True)
-		kld =  self.compute_kld(y1, y2)
+		kld = self.compute_kld(y1, y2)
 		return kld
 

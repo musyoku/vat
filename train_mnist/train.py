@@ -11,14 +11,14 @@ from args import args
 
 def main():
 	# load MNIST images
-	images, labels = dataset.load_test_images()
+	images, labels = dataset.load_train_images()
 
 	# config
 	config = vat.config
 
 	# settings
 	max_epoch = 1000
-	num_trains_per_epoch = 500
+	num_trains_per_epoch = 5000
 	batchsize_l = 100
 	batchsize_u = 100
 
@@ -31,7 +31,7 @@ def main():
 	csv_results = []
 
 	# create semi-supervised split
-	num_validation_data = 1000
+	num_validation_data = 10000
 	num_labeled_data = 100
 	training_images_l, training_labels_l, training_images_u, validation_images, validation_labels = dataset.create_semisupervised(images, labels, num_validation_data, num_labeled_data, config.ndim_y, seed=args.seed)
 	print training_labels_l
@@ -60,7 +60,7 @@ def main():
 			# backprop
 			vat.backprop(loss_supervised + config.lamda * loss_lsd)
 
-			sum_loss_supervised += float(loss_classifier.data)
+			sum_loss_supervised += float(loss_supervised.data)
 			sum_loss_lds += float(loss_lsd.data)
 			progress.show(t, num_trains_per_epoch, {})
 
@@ -70,13 +70,13 @@ def main():
 		images_v, _, label_ids_v = dataset.sample_labeled_data(validation_images, validation_labels, num_validation_data, config.ndim_x, config.ndim_y)
 		images_v_segments = np.split(images_v, num_validation_data // 500)
 		label_ids_v_segments = np.split(label_ids_v, num_validation_data // 500)
-		correct = 0
+		num_correct = 0
 		for images_v, labels_v in zip(images_v_segments, label_ids_v_segments):
-			predicted_labels = vat.sample_x_label(images_v, test=True)
+			predicted_labels = vat.argmax_x_label(images_v, test=True)
 			for i, label in enumerate(predicted_labels):
 				if label == labels_v[i]:
-					correct += 1
-		validation_accuracy = correct / float(num_validation_data)
+					num_correct += 1
+		validation_accuracy = num_correct / float(num_validation_data)
 		
 		progress.show(num_trains_per_epoch, num_trains_per_epoch, {
 			"loss_spv": sum_loss_supervised / num_trains_per_epoch,
