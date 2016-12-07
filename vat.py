@@ -28,7 +28,6 @@ class Config(params.Params):
 		self.momentum = 0.9
 		self.gradient_clipping = 10
 		self.weight_decay = 0
-		self.eps = 0.0001
 		self.lamda = 1
 		self.Ip = 1
 
@@ -94,12 +93,35 @@ class VAT(object):
 	def get_batchsize(self, x):
 		return x.shape[0]
 
+	def encode_x_y(self, x, apply_softmax=True, test=False):
+		x = self.to_variable(x)
+		y = self.model(x, test=test)
+		if apply_softmax:
+			return F.softmax(y)
+		return y
+
 	def argmax_x_label(self, x, test=False):
-		y_distribution = self.to_numpy(F.softmax(self.model(x, test=test)))
+		y_distribution = self.to_numpy(self.encode_x_y(x, apply_softmax=True, test=test))
 		return np.argmax(y_distribution, axis=1)
 
 	def compute_kld(self, p, q):
-		return F.sum(p * F.log(p / (q + 1e-20)), axis=1)
+		return F.reshape(F.sum(p * F.log(p / (q + 1e-20)), axis=1), (-1, 1))
 
-	def compute_lds(self, x):
-		y_distribution = F.softmax(self.model(x))
+	def get_unit_vector(self, v):
+		v /= np.sqrt(np.sum(v ** 2, axis=1)).reshape((-1, 1))
+		return v
+
+	def compute_lds(self, x, xi=0.001, eps=1):
+		x = self.to_variable(x)
+		y1 = self.to_variable(self.encode_x_y(x, apply_softmax=True).data)		# unchain
+		d = self.to_variable(self.get_unit_vector(np.random.normal(size=x.shape).astype(np.float32)))
+		for i in xrange(self.config.Ip):
+			y2 = self.encode_x_y(x + xi * d, apply_softmax=True)
+			kld = self.compute_kld(y1, y2)
+			kld.backward()
+			d = self.to_variable(self.get_unit_vector(d.grad))
+		
+		y2 = self.encode_x_y(x + eps * d, apply_softmax=True)
+		kld =  self.compute_kld(y1, y2)
+		return kld
+

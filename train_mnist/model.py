@@ -4,7 +4,7 @@ import json, os, sys
 from chainer import cuda
 from args import args
 sys.path.append(os.path.split(os.getcwd())[0])
-from adgm import ADGM, Config
+from vat import VAT, Config
 from sequential import Sequential
 from sequential.layers import Linear, Merge, BatchNormalization, Gaussian
 from sequential.functions import Activation, dropout, gaussian_noise, tanh, sigmoid
@@ -35,7 +35,6 @@ else:
 	config.momentum = 0.9
 	config.gradient_clipping = 10
 	config.weight_decay = 0
-	config.eps = 0.0001
 	config.lamda = 1
 	config.Ip = 1
 
@@ -56,9 +55,9 @@ else:
 	with open(model_filename, "w") as f:
 		json.dump(params, f, indent=4, sort_keys=True, separators=(',', ': '))
 
-adgm = ADGM(params)
-adgm.load(args.model_dir)
+vat = VAT(params)
+vat.load(args.model_dir)
 
 if args.gpu_device != -1:
 	cuda.get_device(args.gpu_device).use()
-	adgm.to_gpu()
+	vat.to_gpu()
