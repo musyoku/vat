@@ -28,7 +28,7 @@ class Config(params.Params):
 		self.momentum = 0.9
 		self.gradient_clipping = 10
 		self.weight_decay = 0
-		self.lamda = 1
+		self.lambda_ = 1
 		self.Ip = 1
 
 class VAT(object):

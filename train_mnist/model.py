@@ -35,7 +35,7 @@ else:
 	config.momentum = 0.9
 	config.gradient_clipping = 10
 	config.weight_decay = 0
-	config.lamda = 1
+	config.lambda_ = 1
 	config.Ip = 1
 
 	model = Sequential(weight_initializer=config.weight_initializer, weight_init_std=config.weight_init_std)

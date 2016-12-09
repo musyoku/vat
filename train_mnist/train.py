@@ -58,7 +58,7 @@ def main():
 			loss_lsd = lds_l + lds_u
 
 			# backprop
-			vat.backprop(loss_supervised + config.lamda * loss_lsd)
+			vat.backprop(loss_supervised + config.lambda_ * loss_lsd)
 
 			sum_loss_supervised += float(loss_supervised.data)
 			sum_loss_lds += float(loss_lsd.data)
