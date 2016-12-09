@@ -2,6 +2,8 @@
 
 code for the [paper](https://arxiv.org/abs/1507.00677)
 
+[実装について](http://musyoku.github.io/2016/12/10/Distributional-Smoothing-with-Virtual-Adversarial-Training/)
+
 ### Requirements
 
 - Chainer 1.18
