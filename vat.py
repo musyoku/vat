@@ -107,24 +107,23 @@ class VAT(object):
 		return np.argmax(y_distribution, axis=1)
 
 	def compute_kld(self, p, q):
-		return F.reshape(F.sum(p * F.log(p / (q + 1e-20)), axis=1), (-1, 1))
+		return F.reshape(F.sum(p * (F.log(p + 1e-16) - F.log(q + 1e-16)), axis=1), (-1, 1))
 
 	def get_unit_vector(self, v):
-		v /= np.sqrt(np.sum(v ** 2, axis=1)).reshape((-1, 1))
+		v /= (np.sqrt(np.sum(v ** 2, axis=1)).reshape((-1, 1)) + 1e-16)
 		return v
 
-	def compute_lds(self, x, xi=1, eps=1):
+	def compute_lds(self, x, xi=10, eps=1):
 		x = self.to_variable(x)
 		y1 = self.to_variable(self.encode_x_y(x, apply_softmax=True).data)		# unchain
 		d = self.to_variable(self.get_unit_vector(np.random.normal(size=x.shape).astype(np.float32)))
 
 		for i in xrange(self.config.Ip):
 			y2 = self.encode_x_y(x + xi * d, apply_softmax=True)
-			kld = self.compute_kld(y1, y2)
-			F.sum(kld).backward()
+			kld = F.sum(self.compute_kld(y1, y2))
+			kld.backward()
 			d = self.to_variable(self.get_unit_vector(self.to_numpy(d.grad)))
 		
 		y2 = self.encode_x_y(x + eps * d, apply_softmax=True)
-		kld = self.compute_kld(y1, y2)
-		return kld
+		return -self.compute_kld(y1, y2)
 

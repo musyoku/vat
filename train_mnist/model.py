@@ -31,7 +31,7 @@ else:
 	config.weight_initializer = "Normal"
 	config.nonlinearity = "relu"
 	config.optimizer = "Adam"
-	config.learning_rate = 0.0001
+	config.learning_rate = 0.0002
 	config.momentum = 0.9
 	config.gradient_clipping = 10
 	config.weight_decay = 0
@@ -42,9 +42,9 @@ else:
 	model.add(Linear(None, 1200))
 	model.add(Activation(config.nonlinearity))
 	model.add(BatchNormalization(1200))
-	model.add(Linear(None, 1200))
+	model.add(Linear(None, 600))
 	model.add(Activation(config.nonlinearity))
-	model.add(BatchNormalization(1200))
+	model.add(BatchNormalization(600))
 	model.add(Linear(None, config.ndim_y))
 
 	params = {

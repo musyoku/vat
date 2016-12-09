@@ -18,9 +18,9 @@ def main():
 
 	# settings
 	max_epoch = 1000
-	num_trains_per_epoch = 5000
+	num_trains_per_epoch = 500
 	batchsize_l = 100
-	batchsize_u = 100
+	batchsize_u = 200
 
 	# seed
 	np.random.seed(args.seed)
@@ -45,16 +45,16 @@ def main():
 
 		for t in xrange(num_trains_per_epoch):
 			# sample from data distribution
-			images_l, label_onehot_l, label_ids_l = dataset.sample_labeled_data(training_images_l, training_labels_l, batchsize_l, config.ndim_x, config.ndim_y)
-			images_u = dataset.sample_unlabeled_data(training_images_u, batchsize_u, config.ndim_x)
+			images_l, label_onehot_l, label_ids_l = dataset.sample_labeled_data(training_images_l, training_labels_l, batchsize_l, config.ndim_x, config.ndim_y, binarize=False)
+			images_u = dataset.sample_unlabeled_data(training_images_u, batchsize_u, config.ndim_x, binarize=False)
 
-			# supervised training
+			# supervised loss
 			unnormalized_y_distribution = vat.encode_x_y(images_l, apply_softmax=False)
 			loss_supervised = F.softmax_cross_entropy(unnormalized_y_distribution, vat.to_variable(label_ids_l))
 
 			# virtual adversarial training
-			lds_l = F.sum(vat.compute_lds(images_l)) / batchsize_l
-			lds_u = F.sum(vat.compute_lds(images_u)) / batchsize_u
+			lds_l = -F.sum(vat.compute_lds(images_l)) / batchsize_l
+			lds_u = -F.sum(vat.compute_lds(images_u)) / batchsize_u
 			loss_lsd = lds_l + lds_u
 
 			# backprop
@@ -62,21 +62,21 @@ def main():
 
 			sum_loss_supervised += float(loss_supervised.data)
 			sum_loss_lds += float(loss_lsd.data)
-			progress.show(t, num_trains_per_epoch, {})
+			if t % 10 == 0:
+				progress.show(t, num_trains_per_epoch, {})
 
 		vat.save(args.model_dir)
 
 		# validation
-		images_v, _, label_ids_v = dataset.sample_labeled_data(validation_images, validation_labels, num_validation_data, config.ndim_x, config.ndim_y)
-		images_v_segments = np.split(images_v, num_validation_data // 500)
-		label_ids_v_segments = np.split(label_ids_v, num_validation_data // 500)
-		num_correct = 0
-		for images_v, labels_v in zip(images_v_segments, label_ids_v_segments):
-			predicted_labels = vat.argmax_x_label(images_v, test=True)
-			for i, label in enumerate(predicted_labels):
-				if label == labels_v[i]:
-					num_correct += 1
-		validation_accuracy = num_correct / float(num_validation_data)
+		images_l, _, label_ids_l = dataset.sample_labeled_data(validation_images, validation_labels, num_validation_data, config.ndim_x, config.ndim_y, binarize=False)
+		images_l_segments = np.split(images_l, num_validation_data // 500)
+		label_ids_l_segments = np.split(label_ids_l, num_validation_data // 500)
+		sum_accuracy = 0
+		for images_l, label_ids_l in zip(images_l_segments, label_ids_l_segments):
+			y_distribution = vat.encode_x_y(images_l, apply_softmax=True, test=True)
+			accuracy = F.accuracy(y_distribution, vat.to_variable(label_ids_l))
+			sum_accuracy += float(accuracy.data)
+		validation_accuracy = sum_accuracy / len(images_l_segments)
 		
 		progress.show(num_trains_per_epoch, num_trains_per_epoch, {
 			"loss_spv": sum_loss_supervised / num_trains_per_epoch,
@@ -85,9 +85,9 @@ def main():
 		})
 
 		# write accuracy to csv
-		csv_results.append([epoch, validation_accuracy])
+		csv_results.append([epoch, validation_accuracy, progress.get_total_time()])
 		data = pd.DataFrame(csv_results)
-		data.columns = ["epoch", "accuracy"]
+		data.columns = ["epoch", "accuracy", "min"]
 		data.to_csv("{}/result.csv".format(args.model_dir))
 
 if __name__ == "__main__":
